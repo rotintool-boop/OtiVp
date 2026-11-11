@@ -26,6 +26,8 @@ jobs:
           git submodule update --init --recursive
       - name: Apply OtiVPN branding and standalone build settings
         run: |
+          apt-get update
+          apt-get install -y python3
           python3 - <<'PY'
           from pathlib import Path
           p = Path("upstream/app/build.gradle")
