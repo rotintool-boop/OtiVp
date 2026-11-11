@@ -82,3 +82,4 @@ jobs:
           name: OtiVPN-auto-free-apk
           path: upstream/app/build/outputs/apk/free/debug/app-free-debug.apk
           if-no-files-found: error
+
