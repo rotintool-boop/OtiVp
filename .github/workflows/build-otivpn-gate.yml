@@ -21,7 +21,9 @@ jobs:
           git clone https://github.com/hoang-rio/vpngate-connector.git upstream
           cd upstream
           git checkout 8d177f66a11abe08eff42431feccd9f607fbaaa0
-          git config --global url."https://github.com/".insteadOf "git@github.com:"\n          git submodule update --init --recursive
+          sed -i 's|git@github.com:|https://github.com/|g' .gitmodules
+          git submodule sync --recursive
+          git submodule update --init --recursive
       - name: Apply OtiVPN branding and standalone build settings
         run: |
           python3 - <<'PY'
