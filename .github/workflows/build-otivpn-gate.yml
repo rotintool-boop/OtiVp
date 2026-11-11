@@ -61,6 +61,8 @@ jobs:
                       if depth == 0:
                           return src[:start] + src[i+1:]
               raise RuntimeError("Unclosed Gradle block: " + marker)
+          s = remove_block(s, "        ksp")
+          s = s.replace('    ksp "androidx.room:room-compiler:$room_version"\\n', "")
           s = remove_block(s, "    signingConfigs")
           s = remove_block(s, "        firebaseAppDistribution")
           s = s.replace('            signingConfig signingConfigs.free\n', '')
