@@ -1,0 +1,84 @@
+name: Build OtiVPN Free Auto-Connect
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - ".github/workflows/build-otivpn-gate.yml"
+permissions:
+  contents: read
+  actions: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/hoang-rio/docker-linux-android-sdk:ndk-jdk21
+    steps:
+      - name: Checkout OtiVPN build instructions
+        uses: actions/checkout@v4
+      - name: Checkout VPN Gate engine and its modules
+        run: |
+          git clone https://github.com/hoang-rio/vpngate-connector.git upstream
+          cd upstream
+          git checkout 8d177f66a11abe08eff42431feccd9f607fbaaa0
+          git submodule update --init --recursive
+      - name: Apply OtiVPN branding and standalone build settings
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("upstream/app/build.gradle")
+          s = p.read_text()
+          for line in [
+              "    id 'com.google.devtools.ksp'\n",
+              "    id 'com.google.gms.google-services'\n",
+              "    id 'com.google.firebase.crashlytics'\n",
+              "    id 'com.google.firebase.appdistribution'\n",
+          ]:
+              s = s.replace(line, "")
+          def remove_block(src, marker):
+              start = src.find(marker)
+              if start < 0:
+                  return src
+              brace = src.find("{", start)
+              depth = 0
+              quote = None
+              escaped = False
+              for i in range(brace, len(src)):
+                  c = src[i]
+                  if quote:
+                      if escaped: escaped = False
+                      elif c == "\\\\": escaped = True
+                      elif c == quote: quote = None
+                      continue
+                  if c in ("'", '"'): quote = c
+                  elif c == "{": depth += 1
+                  elif c == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return src[:start] + src[i+1:]
+              raise RuntimeError("Unclosed Gradle block: " + marker)
+          s = remove_block(s, "    signingConfigs")
+          s = remove_block(s, "        firebaseAppDistribution")
+          s = s.replace('            signingConfig signingConfigs.free\n', '')
+          s = s.replace('            signingConfig signingConfigs.pro\n', '')
+          s = s.replace('            applicationId "vn.unlimit.vpngate"', '            applicationId "com.otivpn.app"')
+          p.write_text(s)
+          strings = Path("upstream/app/src/main/res/values/strings.xml")
+          t = strings.read_text().replace(
+              '<string name="app_name" translatable="false">VPN Gate Connector</string>',
+              '<string name="app_name" translatable="false">OtiVPN</string>')
+          strings.write_text(t)
+          PY
+      - name: Build native OpenSSL headers
+        run: cd upstream/SoftEtherClient/src/main/cpp && ./build-openssl-android.sh --headers-only
+      - name: Build OtiVPN APK
+        working-directory: upstream
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :app:assembleFreeDebug --no-daemon
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: OtiVPN-auto-free-apk
+          path: upstream/app/build/outputs/apk/free/debug/app-free-debug.apk
+          if-no-files-found: error
